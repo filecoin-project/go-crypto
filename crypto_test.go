@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	crypto "github.com/filecoin-project/go-crypto"
+	"github.com/filecoin-project/go-crypto"
 )
 
 func TestGenerateKey(t *testing.T) {
