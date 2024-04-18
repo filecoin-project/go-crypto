@@ -3,6 +3,7 @@ package crypto
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"io"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -25,7 +26,15 @@ func PublicKey(sk []byte) []byte {
 // Sign signs the given message, which must be 32 bytes long.
 func Sign(sk, msg []byte) ([]byte, error) {
 	priv := secp256k1.PrivKeyFromBytes(sk)
+
 	sig := ecdsa.SignCompact(priv, msg, false)
+
+	// We need to left-rotate by 1 byte, and adjust the
+	// recovery ID to be zero-centered. (From jsign/go-filsigner)
+	recoveryID := sig[0]
+	copy(sig, sig[1:])
+	sig[64] = recoveryID - 27
+
 	return sig, nil
 }
 
@@ -36,15 +45,26 @@ func Equals(sk, other []byte) bool {
 
 // Verify checks the given signature and returns true if it is valid.
 func Verify(pk, msg, signature []byte) bool {
-	pub, err := secp256k1.ParsePubKey(pk)
+	if len(signature) != 65 {
+		return false
+	}
+	sig := make([]byte, 65)
+	copy(sig, signature)
+	// We need to do the inverse operation of signatures.b
+	recoveryID := sig[64] + 27
+	copy(sig[1:], sig)
+	sig[0] = recoveryID
+
+	vpubkey, _, err := ecdsa.RecoverCompact(sig, msg)
 	if err != nil {
 		return false
 	}
-	sig, err := ecdsa.ParseDERSignature(signature)
+
+	pubkey, err := secp256k1.ParsePubKey(pk)
 	if err != nil {
 		return false
 	}
-	return sig.Verify(msg, pub)
+	return pubkey.IsEqual(vpubkey)
 }
 
 // GenerateKeyFromSeed generates a new key from the given reader.
@@ -63,7 +83,18 @@ func GenerateKey() ([]byte, error) {
 
 // EcRecover recovers the public key from a message, signature pair.
 func EcRecover(msg, signature []byte) ([]byte, error) {
-	pub, _, err := ecdsa.RecoverCompact(signature, msg)
+	if len(signature) != 65 {
+		return nil, fmt.Errorf("public key recovery failed, signature unexpected length")
+	}
+
+	// We need to do the inverse operation of signatures.b
+	sig := make([]byte, 65)
+	copy(sig, signature)
+	recoveryID := sig[64] + 27
+	copy(sig[1:], sig)
+	sig[0] = recoveryID
+
+	pub, _, err := ecdsa.RecoverCompact(sig, msg)
 	if err != nil {
 		return nil, err
 	}
