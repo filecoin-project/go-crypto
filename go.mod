@@ -3,7 +3,6 @@ module github.com/filecoin-project/go-crypto
 go 1.13
 
 require (
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/stretchr/testify v1.8.4
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b

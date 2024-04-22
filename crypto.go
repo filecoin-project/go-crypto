@@ -3,11 +3,9 @@ package crypto
 import (
 	"bytes"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"io"
 
-	crv "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	secpEc "gitlab.com/yawning/secp256k1-voi/secec"
 )
 
@@ -65,24 +63,19 @@ func Verify(pk, msg, signature []byte) bool {
 }
 
 // GenerateKeyFromSeed generates a new key from the given reader.
-func GenerateKeyFromSeed(seed io.Reader) ([]byte, error) {
-	key, err := ecdsa.GenerateKey(crv.S256(), seed)
-	if err != nil {
-		return nil, err
-	}
-
-	privkey := make([]byte, PrivateKeyBytes)
-	blob := key.D.Bytes()
-
-	// the length is guaranteed to be fixed, given the serialization rules for secp2561k curve points.
-	copy(privkey[PrivateKeyBytes-len(blob):], blob)
-
-	return privkey, nil
+// Deprecated: use GenerateKey instead - the given reader is no longer used.
+func GenerateKeyFromSeed(io.Reader) ([]byte, error) {
+	return GenerateKey()
 }
 
 // GenerateKey creates a new key using secure randomness from crypto.rand.
 func GenerateKey() ([]byte, error) {
-	return GenerateKeyFromSeed(rand.Reader)
+	key, err := secpEc.GenerateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	return key.Bytes(), nil
 }
 
 // EcRecover recovers the public key from a message, signature pair.
