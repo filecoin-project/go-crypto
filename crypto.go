@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
+	"errors"
 	"io"
 
 	secpEc "gitlab.com/yawning/secp256k1-voi/secec"
@@ -14,6 +15,10 @@ const PrivateKeyBytes = 32
 
 // PublicKeyBytes is the size of a serialized public key.
 const PublicKeyBytes = 65
+
+var (
+	ErrInvalidMsgLength = errors.New("filecoin/go-crypto: invalid message length")
+)
 
 // PublicKey returns the public key for this private key.
 func PublicKey(sk []byte) []byte {
@@ -80,28 +85,21 @@ func GenerateKey() ([]byte, error) {
 
 // EcRecover recovers the public key from a message, signature pair.
 func EcRecover(msg, signature []byte) ([]byte, error) {
-	if len(signature) == 65 {
-		// parse the compact signature into its (`r`,`s`) scalars and `v` recovery bit
-		r, s, v, err := secpEc.ParseCompactRecoverableSignature(signature)
-		if err != nil {
-			return nil, err
-		}
-
-		pk, err := secpEc.RecoverPublicKey(msg, r, s, v)
-		if err != nil {
-			return nil, err
-		}
-
-		return pk.Bytes(), nil
+	// assert that msg is 32 bytes exactly. The underlying library will truncate to 32 bytes but won't fail if there's garbage data.
+	if len(msg) != 32 {
+		return nil, ErrInvalidMsgLength
 	}
 
-	// parse the compact signature into its (`r`,`s`) scalars (without `v` recovery bit)
-	r, s, err := secpEc.ParseCompactSignature(signature)
+	// the underlying `ParseCompactRecoverableSignature` will fail if sig is not 65 bytes exactly
+	// to future dev: 64 byte signatures are supported by the underlying lib,
+	// but we did not use them in order to maintain identical behavior with the original library
+	r, s, v, err := secpEc.ParseCompactRecoverableSignature(signature)
 	if err != nil {
 		return nil, err
 	}
 
-	pk, err := secpEc.RecoverPublicKey(msg, r, s, byte(0))
+	// `RecoverPublicKey` will fail if the v bit is incorrectly set
+	pk, err := secpEc.RecoverPublicKey(msg, r, s, v)
 	if err != nil {
 		return nil, err
 	}
