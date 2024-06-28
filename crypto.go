@@ -53,13 +53,18 @@ func Verify(pk, msg, signature []byte) bool {
 		return false
 	}
 
+	ecsdaOpts := &secpEc.ECDSAOptions{Encoding: secpEc.EncodingCompact, RejectMalleable: true, Hash: crypto.SHA256}
+
 	// Check if the signature is in [R | S | V] style.
+	// if so, we change the Encoding to "EncodingCompactRecoverable"
 	if len(signature) == 65 {
-		// if so, we drop the V byte and verify the signature with the normal EncodingCompact on 64 byte length sig
-		signature = signature[:64]
+		// Normally you would drop the V (1byte) in [R | S | V] style signatures.
+		// The V (1byte) is the recovery bit and is not apart of the signature verification.
+		// EncodingCompactRecoverable expects the V to be included in the signature
+		ecsdaOpts.Encoding = secpEc.EncodingCompactRecoverable
 	}
 
-	return pub.Verify(msg, signature, &secpEc.ECDSAOptions{Encoding: secpEc.EncodingCompact, RejectMalleable: true, Hash: crypto.SHA256})
+	return pub.Verify(msg, signature, ecsdaOpts)
 }
 
 // GenerateKeyFromSeed generates a new key from the given reader.
