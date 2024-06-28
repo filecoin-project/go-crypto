@@ -111,6 +111,44 @@ func TestECRecoverInvalidRecoveryID(t *testing.T) {
 	}
 }
 
+func TestECRecoverInvalidSigLength(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
+	sk, _ := crypto.GenerateKey()
+
+	msg := generateMsg(32)
+
+	// even though we sign the regular message, the msg length error should trigger first
+	digest, err := crypto.Sign(sk, msg)
+	assert.NoError(t, err)
+	assert.Equal(t, len(digest), 65)
+
+	// valid recovery
+	pk, err := crypto.EcRecover(msg, digest)
+	assert.NoError(t, err)
+	assert.Equal(t, pk, crypto.PublicKey(sk))
+
+	// malform digest to be 66 bytes
+	digest = append(digest, 0x01)
+	_, err = crypto.EcRecover(msg, digest)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "secp256k1/secec: invalid compact signature")
+	}
+	// drop the recovery ID to form a 64 byte signature
+	digest = digest[:64]
+	_, err = crypto.EcRecover(msg, digest)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "secp256k1/secec: invalid compact signature")
+	}
+
+	// malform digest to be 32 bytes
+	digest = digest[:32]
+	_, err = crypto.EcRecover(msg, digest)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "secp256k1/secec: invalid compact signature")
+	}
+}
+
 func generateMsg(msgLength uint) []byte {
 	msg := make([]byte, msgLength)
 	for i := 0; i < len(msg); i++ {

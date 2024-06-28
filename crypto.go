@@ -48,23 +48,12 @@ func Equals(sk, other []byte) bool {
 
 // Verify checks the given signature and returns true if it is valid.
 func Verify(pk, msg, signature []byte) bool {
-	pub, err := secpEc.NewPublicKey(pk)
+	pubKey, err := EcRecover(msg, signature)
 	if err != nil {
 		return false
 	}
 
-	ecsdaOpts := &secpEc.ECDSAOptions{Encoding: secpEc.EncodingCompact, RejectMalleable: true, Hash: crypto.SHA256}
-
-	// Check if the signature is in [R | S | V] style.
-	// if so, we change the Encoding to "EncodingCompactRecoverable"
-	if len(signature) == 65 {
-		// Normally you would drop the V (1byte) in [R | S | V] style signatures.
-		// The V (1byte) is the recovery bit and is not apart of the signature verification.
-		// EncodingCompactRecoverable expects the V to be included in the signature
-		ecsdaOpts.Encoding = secpEc.EncodingCompactRecoverable
-	}
-
-	return pub.Verify(msg, signature, ecsdaOpts)
+	return string(pubKey) == string(pk)
 }
 
 // GenerateKeyFromSeed generates a new key from the given reader.
